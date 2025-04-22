@@ -1,0 +1,31 @@
+{
+    "manifest_version": 3,
+    "name": "Ω Add to Playlist",
+    "version": "1.0",
+    "description": "Add YouTube videos to your playlist via a Google Apps Script",
+    "icons": {                   
+        "16": "icon16.png",
+        "32": "icon32.png",
+        "48": "icon48.png",
+        "128": "icon128.png" 
+      },     
+    "permissions": [],
+    "host_permissions": ["https://www.youtube.com/*"],
+    "content_scripts": [
+      {
+        "matches": ["https://www.youtube.com/*"],
+        "js": ["content.js"],
+        "run_at": "document_idle"
+      }
+    ],
+    "action": {
+        "default_title": "Add to Playlist",
+        "default_icon": {
+          "16": "icon16.png",
+          "32": "icon32.png",
+          "48": "icon48.png",
+          "128": "icon128.png"  
+        }
+      }
+  }
+  
