@@ -92,7 +92,7 @@ function showToast(message) {
     }, 3000);
   }
 
-function injectButtons() {
+  function injectButtons() {
     const videoLinks = document.querySelectorAll('a#thumbnail[href^="/watch"]');
     videoLinks.forEach(link => {
       const container = link.closest('ytd-thumbnail');
@@ -103,13 +103,16 @@ function injectButtons() {
         // Show the button on hover
         container.style.position = 'relative';
         container.appendChild(btn);
+        btn.style.zIndex = '1000';
+        container.onmouseover = () => {
+          btn.style.display = 'block';
+        };
+        // container.onmouseout = (e) => {
+        //   if (!container.contains(e.relatedTarget)) {
+        //     btn.style.display = 'none';
+        //   }
+        // };
         
-        container.addEventListener('mouseenter', () => {
-          btn.style.display = 'block'; // Show button on hover
-        });
-        container.addEventListener('mouseleave', () => {
-          btn.style.display = 'none'; // Hide button when not hovering
-        });
   
         container.dataset.playlistButtonAdded = 'true';
       }
