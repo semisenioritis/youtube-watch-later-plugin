@@ -2,16 +2,62 @@ const endpoint = '###add the appscript endpoint here';
 
 console.log('[AddToPlaylist] Content script loaded');
 
+
+
+let lastUrl=location.href;
+
+;(() => {
+  const wrap = fn => function(...args) {
+    const ret = fn.apply(this, args);
+    window.dispatchEvent(new Event('yt-navigate'));
+    return ret;
+  }
+  history.pushState = wrap(history.pushState);
+  history.replaceState = wrap(history.replaceState);
+  window.addEventListener('popstate', () => window.dispatchEvent(new Event('yt-navigate')));
+})();
+
+
+const style = document.createElement('style');
+style.textContent = `
+@keyframes pulseHighlight {
+  0% {
+    background-color: rgba(255, 0, 0, 0.2);
+    transform: scale(1);
+    box-shadow: none;
+  }
+  50% {
+    background-color: rgba(255, 0, 0, 0.5);
+    transform: scale(1.1);
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  }
+  100% {
+    background-color: rgba(255, 0, 0, 0.2);
+    transform: scale(1);
+    box-shadow: none;
+  }
+}
+.playlist-player-button.pulse {
+  animation: pulseHighlight 1.2s ease-in-out;
+}
+`;
+document.head.appendChild(style);
+
+
+
+
 function createButton(videoUrl){
   console.log(`[AddToPlaylist] Creating button for: ${videoUrl}`);
   const btn = document.createElement('button');
   btn.innerText = '🕑';
+  btn.setAttribute('aria-label','Add to Watch Later');
   Object.assign(btn.style, {
     position: 'absolute',
-    top: '8px',
+    bottom: '8px',
     left: '8px',
     zIndex: '1000',
     backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(255, 0, 0, 0.2)',
     color: 'white',
     border: 'none',
     padding: '5px',
@@ -92,10 +138,11 @@ function showToast(message) {
     }, 3000);
   }
 
-  function injectButtons() {
-    const videoLinks = document.querySelectorAll('a#thumbnail[href^="/watch"]');
+function injectButtons() {
+    const videoLinks = document.querySelectorAll('ytd-thumbnail a[href^="/watch"]');
     videoLinks.forEach(link => {
-      const container = link.closest('ytd-thumbnail');
+      const container = link.closest('ytd-rich-grid-media, ytd-grid-video-renderer');
+      
       if (container && !container.dataset.playlistButtonAdded) {
         const videoUrl = 'https://www.youtube.com' + link.getAttribute('href');
         const btn = createButton(videoUrl);        
@@ -104,14 +151,14 @@ function showToast(message) {
         container.style.position = 'relative';
         container.appendChild(btn);
         btn.style.zIndex = '1000';
-        container.onmouseover = () => {
+        container.addEventListener('pointerenter', () => {
           btn.style.display = 'block';
-        };
-        // container.onmouseout = (e) => {
-        //   if (!container.contains(e.relatedTarget)) {
-        //     btn.style.display = 'none';
-        //   }
-        // };
+          
+
+        });
+        container.addEventListener('pointerleave', () => {
+          btn.style.display = 'none';
+        });
         
   
         container.dataset.playlistButtonAdded = 'true';
@@ -119,10 +166,79 @@ function showToast(message) {
     });
   }
 
-const observer = new MutationObserver((mutations) => {
-  console.log('[AddToPlaylist] DOM mutated');
-  injectButtons();
-});
+  function injectSuggestedButtons(){
+    document
+      .querySelectorAll('yt-lockup-view-model a[href^="/watch"]')
+      .forEach(link=>{
+        const container = link.closest('yt-lockup-view-model');
+        if (!container || container.dataset.playlistSugButton) return;
+        const url = 'https://www.youtube.com'+link.getAttribute('href');
+        const btn = createButton(url);
+        container.style.position='relative';
+        container.appendChild(btn);
+        container.addEventListener('pointerenter',()=>btn.style.display='block');
+        container.addEventListener('pointerleave',()=>btn.style.display='none');
+        container.dataset.playlistSugButton='true';
+      });
+  }
+
+
+  function injectPlayerButton(){
+    const container = document.querySelector('.html5-video-player');
+    if (!container || container.dataset.playlistPlayerButton) return;
+    const videoUrl = window.location.href;
+    const btn = createButton(videoUrl);
+    btn.classList.add('playlist-player-button');
+    Object.assign(btn.style, {
+      top: '8px',
+      right: 'auto',
+      bottom: 'auto',
+      left: '10px',
+      fontSize: '18px',
+      padding: '8px 12px',
+      backgroundColor: 'rgba(0,0,0,0.7)',
+    });
+    btn.style.display = 'block';
+    container.style.position = 'relative';
+    container.appendChild(btn);
+    container.dataset.playlistPlayerButton = 'true';
+  }
+  
+  
+
+  const observer = new MutationObserver(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      console.log('[AddToPlaylist] URL changed, clearing old buttons');
+      document.querySelectorAll('[data-playlist-button-added],[data-playlist-sug-button],[data-playlist-player-button]')
+        .forEach(el => {
+          el.querySelector('button[aria-label="Add to Watch Later"]')?.remove();
+          delete el.dataset.playlistButtonAdded;
+          delete el.dataset.playlistSugButton;
+          delete el.dataset.playlistPlayerButton;
+        });
+    }
+    injectButtons();
+    injectSuggestedButtons();
+    injectPlayerButton();
+  });
+  
 observer.observe(document.body, { childList: true, subtree: true });
 
 injectButtons();
+injectSuggestedButtons();
+injectPlayerButton(); 
+
+function pulseRandomly() {
+  const delay = 10000 + Math.random() * 8000; // 10s to 18s
+  setTimeout(() => {
+    const btn = document.querySelector('.playlist-player-button');
+    if (btn) {
+      btn.classList.add('pulse');
+      setTimeout(() => btn.classList.remove('pulse'), 1200); // match animation duration
+    }
+    pulseRandomly(); // recurse
+  }, delay);
+}
+pulseRandomly();
+
